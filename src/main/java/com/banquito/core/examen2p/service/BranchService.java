@@ -3,12 +3,13 @@ package com.banquito.core.examen2p.service;
 import com.banquito.core.examen2p.model.Branch;
 import com.banquito.core.examen2p.model.BranchHoliday;
 import com.banquito.core.examen2p.repository.BranchRepository;
-import org.springframework.http.HttpStatus;
+import com.banquito.core.examen2p.exception.BranchNotFoundException;
+import com.banquito.core.examen2p.exception.HolidayOperationException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,7 +25,7 @@ public class BranchService {
 
     public Branch findById(String id) {
         return branchRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Branch not found with id: " + id));
+                .orElseThrow(() -> new BranchNotFoundException(id));
     }
 
     @Transactional
@@ -55,9 +56,17 @@ public class BranchService {
     }
 
     @Transactional
-    public Branch clearHolidays(String id) {
+    public Branch deleteHoliday(String id, LocalDate date) {
         Branch branch = findById(id);
-        branch.setBranchHolidays(new ArrayList<>());
+        if (branch.getBranchHolidays() == null || branch.getBranchHolidays().isEmpty()) {
+            throw new HolidayOperationException("eliminar", id, "La sucursal no tiene feriados");
+        }
+
+        boolean removed = branch.getBranchHolidays().removeIf(holiday -> holiday.getDate().equals(date));
+        if (!removed) {
+            throw new HolidayOperationException("eliminar", id, "No se encontró un feriado para la fecha: " + date);
+        }
+
         branch.setLastModifiedDate(LocalDateTime.now());
         return branchRepository.save(branch);
     }
@@ -67,9 +76,18 @@ public class BranchService {
         return branch.getBranchHolidays();
     }
 
-    public boolean isHoliday(String id, LocalDateTime date) {
+    public boolean isHoliday(String id, LocalDate date) {
         Branch branch = findById(id);
         return branch.getBranchHolidays().stream()
-                .anyMatch(holiday -> holiday.getDate().toLocalDate().equals(date.toLocalDate()));
+                .anyMatch(holiday -> holiday.getDate().equals(date));
+    }
+
+    public void verifyHoliday(String id, LocalDate date) {
+        Branch branch = findById(id);
+        boolean isHoliday = branch.getBranchHolidays().stream()
+                .anyMatch(holiday -> holiday.getDate().equals(date));
+        if (!isHoliday) {
+            throw new HolidayOperationException("verificar", id, "No existe un feriado para la fecha: " + date);
+        }
     }
 } 

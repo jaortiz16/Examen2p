@@ -9,7 +9,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 @Data
 @Builder
@@ -18,7 +18,7 @@ import java.time.LocalDateTime;
 public class BranchHolidayDTO {
     @NotNull(message = "La fecha es obligatoria")
     @Future(message = "La fecha debe ser futura")
-    private LocalDateTime date;
+    private LocalDate date;
 
     @NotBlank(message = "El nombre del feriado es obligatorio")
     @Size(min = 3, max = 100, message = "El nombre debe tener entre 3 y 100 caracteres")

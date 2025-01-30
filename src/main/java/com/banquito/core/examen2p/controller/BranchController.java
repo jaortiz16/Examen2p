@@ -23,6 +23,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -172,26 +173,28 @@ public class BranchController {
     }
 
     @DeleteMapping("/{id}/holidays")
-    @Operation(summary = "Eliminar feriados", 
-              description = "Elimina todos los feriados de una sucursal específica")
+    @Operation(summary = "Eliminar feriado", 
+              description = "Elimina un feriado específico de una sucursal")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Feriados eliminados exitosamente"),
-        @ApiResponse(responseCode = "404", description = "Sucursal no encontrada"),
+        @ApiResponse(responseCode = "200", description = "Feriado eliminado exitosamente"),
+        @ApiResponse(responseCode = "404", description = "Sucursal no encontrada o feriado no encontrado"),
         @ApiResponse(responseCode = "500", description = "Error interno del servidor")
     })
-    public ResponseEntity<BranchDTO> clearHolidays(
+    public ResponseEntity<BranchDTO> deleteHoliday(
             @Parameter(description = "ID de la sucursal", required = true)
-            @PathVariable String id) {
+            @PathVariable String id,
+            @Parameter(description = "Fecha del feriado a eliminar", required = true)
+            @RequestParam LocalDate date) {
         try {
-            log.info("Eliminando todos los feriados de la sucursal: {}", id);
-            BranchDTO updatedBranch = branchMapper.toDto(branchService.clearHolidays(id));
-            log.info("Feriados eliminados de la sucursal: {}", id);
+            log.info("Eliminando feriado del {} de la sucursal: {}", date, id);
+            BranchDTO updatedBranch = branchMapper.toDto(branchService.deleteHoliday(id, date));
+            log.info("Feriado eliminado de la sucursal: {}", id);
             return ResponseEntity.ok(updatedBranch);
-        } catch (BranchNotFoundException e) {
-            log.error("Error al eliminar feriados: sucursal {} no encontrada", id);
+        } catch (BranchNotFoundException | HolidayOperationException e) {
+            log.error("Error al eliminar feriado: {}", e.getMessage());
             throw e;
         } catch (Exception e) {
-            log.error("Error inesperado al eliminar feriados de la sucursal {}", id, e);
+            log.error("Error inesperado al eliminar feriado de la sucursal {}", id, e);
             throw e;
         }
     }
@@ -227,22 +230,26 @@ public class BranchController {
     @Operation(summary = "Verificar feriado", 
               description = "Verifica si una fecha específica es feriado en una sucursal")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Verificación realizada exitosamente"),
+        @ApiResponse(responseCode = "200", description = "La fecha es un feriado"),
+        @ApiResponse(responseCode = "400", description = "La fecha no es un feriado"),
         @ApiResponse(responseCode = "404", description = "Sucursal no encontrada"),
         @ApiResponse(responseCode = "500", description = "Error interno del servidor")
     })
-    public ResponseEntity<Boolean> isHoliday(
+    public ResponseEntity<Void> isHoliday(
             @Parameter(description = "ID de la sucursal", required = true)
             @PathVariable String id,
             @Parameter(description = "Fecha a verificar", required = true)
-            @RequestParam LocalDateTime date) {
+            @RequestParam LocalDate date) {
         try {
             log.info("Verificando si {} es feriado en la sucursal {}", date, id);
-            boolean isHoliday = branchService.isHoliday(id, date);
-            log.info("Resultado de la verificación para la sucursal {}: {}", id, isHoliday);
-            return ResponseEntity.ok(isHoliday);
+            branchService.verifyHoliday(id, date);
+            log.info("Se confirmó que {} es feriado en la sucursal {}", date, id);
+            return ResponseEntity.ok().build();
         } catch (BranchNotFoundException e) {
             log.error("Error al verificar feriado: sucursal {} no encontrada", id);
+            throw e;
+        } catch (HolidayOperationException e) {
+            log.error("La fecha {} no es feriado en la sucursal {}", date, id);
             throw e;
         } catch (Exception e) {
             log.error("Error inesperado al verificar feriado en la sucursal {}", id, e);
